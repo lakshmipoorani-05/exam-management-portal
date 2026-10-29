@@ -2,4 +2,5 @@
 {% block content %}
 <h3>Admin Dashboard</h3>
 <p>Welcome, {{ g.user.name }}.</p>
+<a class="btn btn-primary" href="{{ url_for('admin_examiners') }}">Manage examiners</a>
 {% endblock %}

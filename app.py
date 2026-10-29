@@ -73,9 +73,11 @@ def register():
 
 @app.before_request
 def load_logged_in_user():
-    # runs before every request; g.user is the logged-in user, or None
     user_id = session.get("user_id")
     g.user = db.session.get(User, user_id) if user_id else None
+    if g.user is not None and g.user.status == "deactivated":
+        session.clear()
+        g.user = None
 
 def role_required(role):
     """Only let users with this role into the page."""
@@ -146,6 +148,55 @@ def student_dashboard():
 @app.errorhandler(403)
 def forbidden(error):
     return render_template("error.html", code=403, message="You do not have access to this page."), 403
+
+@app.route("/admin/examiners")
+@role_required("admin")
+def admin_examiners():
+    examiners = User.query.filter_by(role="examiner").order_by(User.id.desc()).all()
+    return render_template("admin_examiners.html", examiners=examiners)
+
+
+@app.route("/admin/examiners/add", methods=["GET", "POST"])
+@role_required("admin")
+def admin_add_examiner():
+    # the admin creates an examiner who is approved straight away
+    if request.method == "POST":
+        email = request.form["email"].strip().lower()
+        password = request.form["password"]
+        if len(password) < 6:
+            flash("Password must be at least 6 characters.", "danger")
+        elif User.query.filter_by(email=email).first():
+            flash("This email is already registered.", "danger")
+        else:
+            examiner = User(
+                name=request.form["name"].strip(),
+                email=email,
+                password=generate_password_hash(password),
+                role="examiner",
+                phone=request.form.get("phone"),
+                department=request.form.get("department"),
+                status="active",
+            )
+            db.session.add(examiner)
+            db.session.commit()
+            flash("Examiner added and approved.", "success")
+            return redirect(url_for("admin_examiners"))
+    return render_template("admin_examiner_form.html")
+
+
+@app.route("/admin/examiners/<int:user_id>/<action>", methods=["POST"])
+@role_required("admin")
+def admin_examiner_action(user_id, action):
+    examiner = db.session.get(User, user_id)
+    if examiner is None or examiner.role != "examiner":
+        abort(404)
+    new_status = {"approve": "active", "deactivate": "deactivated", "activate": "active"}.get(action)
+    if new_status is None:
+        abort(400)
+    examiner.status = new_status
+    db.session.commit()
+    flash(f"{examiner.name} is now {new_status}.", "success")
+    return redirect(url_for("admin_examiners"))
 
 if __name__ == "__main__":
     app.run(debug=True)

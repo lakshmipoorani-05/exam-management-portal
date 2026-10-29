@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+  <h3>Examiners</h3>
+  <a class="btn btn-primary" href="{{ url_for('admin_add_examiner') }}">+ Add Examiner</a>
+</div>
+
+<table class="table table-striped bg-white">
+  <thead>
+    <tr><th>ID</th><th>Name</th><th>Email</th><th>Department</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for e in examiners %}
+    <tr>
+      <td>{{ e.id }}</td>
+      <td>{{ e.name }}</td>
+      <td>{{ e.email }}</td>
+      <td>{{ e.department or "" }}</td>
+      <td>{{ e.status }}</td>
+      <td>
+        <form method="post">
+          {% if e.status == "pending" %}
+            <button formaction="{{ url_for('admin_examiner_action', user_id=e.id, action='approve') }}" class="btn btn-sm btn-success">Approve</button>
+          {% elif e.status == "active" %}
+            <button formaction="{{ url_for('admin_examiner_action', user_id=e.id, action='deactivate') }}" class="btn btn-sm btn-outline-danger">Deactivate</button>
+          {% else %}
+            <button formaction="{{ url_for('admin_examiner_action', user_id=e.id, action='activate') }}" class="btn btn-sm btn-outline-success">Reactivate</button>
+          {% endif %}
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-center text-muted">No examiners yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
