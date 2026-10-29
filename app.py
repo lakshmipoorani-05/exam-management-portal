@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, url_for, flash
 from werkzeug.security import generate_password_hash
 from model import db, User
 
@@ -34,6 +34,40 @@ with app.app_context():
 def index():
     return render_template("index.html")
 
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        name = request.form["name"].strip()
+        email = request.form["email"].strip().lower()
+        password = request.form["password"]
+        role = request.form["role"]
+
+        # backend validation: never trust the browser alone
+        if role not in ("student", "examiner"):
+            flash("Please choose a valid role.", "danger")
+        elif len(password) < 6:
+            flash("Password must be at least 6 characters.", "danger")
+        elif User.query.filter_by(email=email).first():
+            flash("This email is already registered.", "danger")
+        else:
+            # examiners must wait for admin approval, students are active at once
+            status = "pending" if role == "examiner" else "active"
+            user = User(
+                name=name,
+                email=email,
+                password=generate_password_hash(password),
+                role=role,
+                phone=request.form.get("phone"),
+                department=request.form.get("department"),
+                roll_no=request.form.get("roll_no"),
+                status=status,
+            )
+            db.session.add(user)
+            db.session.commit()
+            flash("Registration successful.", "success")
+            return redirect(url_for("index"))
+
+    return render_template("register.html")
 
 if __name__ == "__main__":
     app.run(debug=True)

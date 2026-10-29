@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h4 class="mb-3">Register</h4>
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label">I am a</label>
+            <select name="role" class="form-select">
+              <option value="student">Student</option>
+              <option value="examiner">Examiner (needs admin approval)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Full name</label>
+            <input name="name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password (at least 6 characters)</label>
+            <input type="password" name="password" minlength="6" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Phone</label>
+            <input name="phone" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Department</label>
+            <input name="department" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Roll number (students)</label>
+            <input name="roll_no" class="form-control">
+          </div>
+          <button class="btn btn-primary w-100">Register</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
