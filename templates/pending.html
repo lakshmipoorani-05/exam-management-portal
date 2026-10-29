@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="alert alert-warning mt-4">
+  <h5>Waiting for approval</h5>
+  Your examiner account is <b>{{ g.user.status }}</b>. An admin must approve it before you can use the dashboard.
+</div>
+{% endblock %}

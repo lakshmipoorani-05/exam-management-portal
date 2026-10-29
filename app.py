@@ -1,4 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, g
+from functools import wraps
+from flask import (Flask, render_template, request, redirect, url_for,
+                   flash, session, g, abort)
 from werkzeug.security import generate_password_hash, check_password_hash
 from model import db, User
 
@@ -75,6 +77,21 @@ def load_logged_in_user():
     user_id = session.get("user_id")
     g.user = db.session.get(User, user_id) if user_id else None
 
+def role_required(role):
+    """Only let users with this role into the page."""
+    def decorator(view):
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            if g.user is None:
+                flash("Please log in first.", "warning")
+                return redirect(url_for("login"))
+            if g.user.role != role:
+                abort(403)  # logged in, but the wrong role
+            if role == "examiner" and g.user.status != "active":
+                return render_template("pending.html")  # not approved yet
+            return view(*args, **kwargs)
+        return wrapper
+    return decorator
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -102,9 +119,33 @@ def logout():
 
 @app.route("/dashboard")
 def dashboard():
+    # send each user to the dashboard for their own role
     if g.user is None:
         return redirect(url_for("login"))
-    return render_template("dashboard.html")
+    return redirect(url_for(g.user.role + "_dashboard"))
+
+
+@app.route("/admin")
+@role_required("admin")
+def admin_dashboard():
+    return render_template("admin_dashboard.html")
+
+
+@app.route("/examiner")
+@role_required("examiner")
+def examiner_dashboard():
+    return render_template("examiner_dashboard.html")
+
+
+@app.route("/student")
+@role_required("student")
+def student_dashboard():
+    return render_template("student_dashboard.html")
+
+
+@app.errorhandler(403)
+def forbidden(error):
+    return render_template("error.html", code=403, message="You do not have access to this page."), 403
 
 if __name__ == "__main__":
     app.run(debug=True)
