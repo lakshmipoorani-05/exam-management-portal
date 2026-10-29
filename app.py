@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
-from werkzeug.security import generate_password_hash
+from flask import Flask, render_template, request, redirect, url_for, flash, session, g
+from werkzeug.security import generate_password_hash, check_password_hash
 from model import db, User
 
 app = Flask(__name__)
@@ -68,6 +68,43 @@ def register():
             return redirect(url_for("index"))
 
     return render_template("register.html")
+
+@app.before_request
+def load_logged_in_user():
+    # runs before every request; g.user is the logged-in user, or None
+    user_id = session.get("user_id")
+    g.user = db.session.get(User, user_id) if user_id else None
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form["email"].strip().lower()
+        user = User.query.filter_by(email=email).first()
+
+        if user is None or not check_password_hash(user.password, request.form["password"]):
+            flash("Invalid email or password.", "danger")
+        elif user.status == "deactivated":
+            flash("Your account has been deactivated.", "danger")
+        else:
+            session.clear()
+            session["user_id"] = user.id
+            return redirect(url_for("dashboard"))
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("index"))
+
+
+@app.route("/dashboard")
+def dashboard():
+    if g.user is None:
+        return redirect(url_for("login"))
+    return render_template("dashboard.html")
 
 if __name__ == "__main__":
     app.run(debug=True)

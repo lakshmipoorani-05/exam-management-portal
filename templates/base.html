@@ -11,9 +11,14 @@
   <nav class="navbar navbar-dark bg-primary mb-4">
     <div class="container">
       <a class="navbar-brand" href="/">EMP</a>
-      <div>
-        <a class="btn btn-outline-light btn-sm" href="/login">Login</a>
-        <a class="btn btn-light btn-sm" href="/register">Register</a>
+        <div>
+        {% if g.user %}
+          <span class="text-white me-2">{{ g.user.name }} ({{ g.user.role }})</span>
+          <a class="btn btn-light btn-sm" href="/logout">Logout</a>
+        {% else %}
+          <a class="btn btn-outline-light btn-sm" href="/login">Login</a>
+          <a class="btn btn-light btn-sm" href="/register">Register</a>
+        {% endif %}
       </div>
     </div>
   </nav>
