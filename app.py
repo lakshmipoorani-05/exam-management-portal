@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 from werkzeug.security import generate_password_hash
 from model import db, User
 
@@ -32,7 +32,7 @@ with app.app_context():
 
 @app.route("/")
 def index():
-    return "EMP is running"
+    return render_template("index.html")
 
 
 if __name__ == "__main__":
