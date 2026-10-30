@@ -2,8 +2,7 @@ from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, g, abort)
 from werkzeug.security import generate_password_hash, check_password_hash
-from model import db, User
-
+from model import db, User, Course
 app = Flask(__name__)
 app.secret_key = "change-this-later"
 
@@ -131,6 +130,7 @@ def dashboard():
 @role_required("admin")
 def admin_dashboard():
     stats = {
+        "Courses": Course.query.count(),
         "Examiners": User.query.filter_by(role="examiner").count(),
         "Students": User.query.filter_by(role="student").count(),
     }
@@ -209,6 +209,69 @@ def admin_examiner_action(user_id, action):
     db.session.commit()
     flash(f"{examiner.name} is now {new_status}.", "success")
     return redirect(url_for("admin_examiners"))
+
+@app.route("/admin/courses")
+@role_required("admin")
+def admin_courses():
+    courses = Course.query.order_by(Course.code).all()
+    return render_template("admin_courses.html", courses=courses)
+
+
+@app.route("/admin/courses/new", methods=["GET", "POST"])
+@role_required("admin")
+def admin_course_new():
+    if request.method == "POST":
+        code = request.form["code"].strip().upper()
+        if Course.query.filter_by(code=code).first():
+            flash("A course with this code already exists.", "danger")
+        else:
+            course = Course(
+                code=code,
+                name=request.form["name"].strip(),
+                description=request.form.get("description"),
+                credits=int(request.form.get("credits") or 3),
+                status=request.form.get("status", "Active"),
+            )
+            db.session.add(course)
+            db.session.commit()
+            flash("Course created.", "success")
+            return redirect(url_for("admin_courses"))
+    return render_template("admin_course_form.html", course=None)
+
+
+@app.route("/admin/courses/<int:course_id>/edit", methods=["GET", "POST"])
+@role_required("admin")
+def admin_course_edit(course_id):
+    course = db.session.get(Course, course_id)
+    if course is None:
+        abort(404)
+    if request.method == "POST":
+        code = request.form["code"].strip().upper()
+        clash = Course.query.filter(Course.code == code, Course.id != course.id).first()
+        if clash:
+            flash("Another course already uses this code.", "danger")
+        else:
+            course.code = code
+            course.name = request.form["name"].strip()
+            course.description = request.form.get("description")
+            course.credits = int(request.form.get("credits") or 3)
+            course.status = request.form.get("status", "Active")
+            db.session.commit()
+            flash("Course updated.", "success")
+            return redirect(url_for("admin_courses"))
+    return render_template("admin_course_form.html", course=course)
+
+
+@app.route("/admin/courses/<int:course_id>/delete", methods=["POST"])
+@role_required("admin")
+def admin_course_delete(course_id):
+    course = db.session.get(Course, course_id)
+    if course is None:
+        abort(404)
+    db.session.delete(course)
+    db.session.commit()
+    flash("Course removed.", "info")
+    return redirect(url_for("admin_courses"))
 
 if __name__ == "__main__":
     app.run(debug=True)

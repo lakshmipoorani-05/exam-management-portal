@@ -17,3 +17,13 @@ class User(db.Model):
     department = db.Column(db.String(100))
     roll_no = db.Column(db.String(30))
     status = db.Column(db.String(20), nullable=False, default="active")
+
+class Course(db.Model):
+    __tablename__ = "courses"
+
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(20), unique=True, nullable=False)
+    name = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text)
+    credits = db.Column(db.Integer, default=3)
+    status = db.Column(db.String(20), nullable=False, default="Active")  # Active / Inactive
