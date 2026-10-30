@@ -1,6 +1,27 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Admin Dashboard</h3>
-<p>Welcome, {{ g.user.name }}.</p>
+<h3 class="mb-3">Admin Dashboard</h3>
+
+{% if pending %}
+  <div class="alert alert-warning">
+    {{ pending }} examiner(s) waiting for approval.
+    <a href="{{ url_for('admin_examiners') }}">Review</a>
+  </div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  {% for label, value in stats.items() %}
+  <div class="col-6 col-md-3">
+    <div class="card text-center shadow-sm">
+      <div class="card-body">
+        <div class="fs-2 fw-bold">{{ value }}</div>
+        <div class="text-muted">{{ label }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
 <a class="btn btn-primary" href="{{ url_for('admin_examiners') }}">Manage examiners</a>
+<a class="btn btn-primary" href="{{ url_for('admin_students') }}">View students</a>
 {% endblock %}

@@ -130,7 +130,19 @@ def dashboard():
 @app.route("/admin")
 @role_required("admin")
 def admin_dashboard():
-    return render_template("admin_dashboard.html")
+    stats = {
+        "Examiners": User.query.filter_by(role="examiner").count(),
+        "Students": User.query.filter_by(role="student").count(),
+    }
+    pending = User.query.filter_by(role="examiner", status="pending").count()
+    return render_template("admin_dashboard.html", stats=stats, pending=pending)
+
+
+@app.route("/admin/students")
+@role_required("admin")
+def admin_students():
+    students = User.query.filter_by(role="student").order_by(User.id.desc()).all()
+    return render_template("admin_students.html", students=students)
 
 
 @app.route("/examiner")
