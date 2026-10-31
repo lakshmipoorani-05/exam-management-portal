@@ -2,7 +2,8 @@ from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, g, abort)
 from werkzeug.security import generate_password_hash, check_password_hash
-from model import db, User, Course
+from datetime import datetime
+from model import db, User, Course, Exam
 app = Flask(__name__)
 app.secret_key = "change-this-later"
 
@@ -94,6 +95,43 @@ def role_required(role):
         return wrapper
     return decorator
 
+EXAM_TYPES = ["Viva", "Practical", "Project Demo", "Assessment"]
+
+
+def parse_date(text):
+    return datetime.strptime(text, "%Y-%m-%d").date()
+
+
+def read_exam_form(form):
+    """Read and validate the exam form. Returns (values, error_message)."""
+    try:
+        values = {
+            "course_id": int(form["course_id"]),
+            "name": form["name"].strip(),
+            "exam_type": form["exam_type"],
+            "duration": int(form["duration"]),
+            "max_marks": int(form["max_marks"]),
+            "slot_create_start": parse_date(form["slot_create_start"]),
+            "slot_create_end": parse_date(form["slot_create_end"]),
+            "booking_start": parse_date(form["booking_start"]),
+            "booking_end": parse_date(form["booking_end"]),
+            "instructions": form.get("instructions"),
+        }
+    except (ValueError, KeyError):
+        return None, "Please fill every field with valid values."
+
+    if db.session.get(Course, values["course_id"]) is None:
+        return None, "Please choose a valid course."
+    if values["exam_type"] not in EXAM_TYPES:
+        return None, "Please choose a valid exam type."
+    if values["duration"] < 1 or values["max_marks"] < 1:
+        return None, "Duration and maximum marks must be at least 1."
+    if values["slot_create_end"] < values["slot_create_start"]:
+        return None, "Slot creation end date cannot be before its start date."
+    if values["booking_end"] < values["booking_start"]:
+        return None, "Booking end date cannot be before its start date."
+    return values, None
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -131,6 +169,7 @@ def dashboard():
 def admin_dashboard():
     stats = {
         "Courses": Course.query.count(),
+        "Examinations": Exam.query.count(),
         "Examiners": User.query.filter_by(role="examiner").count(),
         "Students": User.query.filter_by(role="student").count(),
     }
@@ -272,6 +311,60 @@ def admin_course_delete(course_id):
     db.session.commit()
     flash("Course removed.", "info")
     return redirect(url_for("admin_courses"))
+
+@app.route("/admin/exams")
+@role_required("admin")
+def admin_exams():
+    exams = Exam.query.order_by(Exam.id.desc()).all()
+    return render_template("admin_exams.html", exams=exams)
+
+
+@app.route("/admin/exams/new", methods=["GET", "POST"])
+@role_required("admin")
+def admin_exam_new():
+    courses = Course.query.filter_by(status="Active").order_by(Course.code).all()
+    if request.method == "POST":
+        values, error = read_exam_form(request.form)
+        if error:
+            flash(error, "danger")
+        else:
+            db.session.add(Exam(**values))
+            db.session.commit()
+            flash("Examination created.", "success")
+            return redirect(url_for("admin_exams"))
+    return render_template("admin_exam_form.html", exam=None, courses=courses, exam_types=EXAM_TYPES)
+
+
+@app.route("/admin/exams/<int:exam_id>/edit", methods=["GET", "POST"])
+@role_required("admin")
+def admin_exam_edit(exam_id):
+    exam = db.session.get(Exam, exam_id)
+    if exam is None:
+        abort(404)
+    courses = Course.query.filter_by(status="Active").order_by(Course.code).all()
+    if request.method == "POST":
+        values, error = read_exam_form(request.form)
+        if error:
+            flash(error, "danger")
+        else:
+            for field, value in values.items():
+                setattr(exam, field, value)
+            db.session.commit()
+            flash("Examination updated.", "success")
+            return redirect(url_for("admin_exams"))
+    return render_template("admin_exam_form.html", exam=exam, courses=courses, exam_types=EXAM_TYPES)
+
+
+@app.route("/admin/exams/<int:exam_id>/delete", methods=["POST"])
+@role_required("admin")
+def admin_exam_delete(exam_id):
+    exam = db.session.get(Exam, exam_id)
+    if exam is None:
+        abort(404)
+    db.session.delete(exam)
+    db.session.commit()
+    flash("Examination removed.", "info")
+    return redirect(url_for("admin_exams"))
 
 if __name__ == "__main__":
     app.run(debug=True)
