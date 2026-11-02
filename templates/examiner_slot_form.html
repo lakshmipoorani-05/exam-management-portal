@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h3>New Slot</h3>
+
+{% if not exams %}
+  <div class="alert alert-info">No examination assigned to you is open for slot creation right now.</div>
+{% else %}
+<form method="post" class="card card-body col-md-7">
+  <div class="mb-3">
+    <label class="form-label">Examination</label>
+    <select name="exam_id" class="form-select" required>
+      {% for e in exams %}<option value="{{ e.id }}">{{ e.name }} ({{ e.duration }} min)</option>{% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Date</label>
+    <input type="date" name="slot_date" class="form-control" required>
+  </div>
+  <div class="row">
+    <div class="col mb-3">
+      <label class="form-label">Start time</label>
+      <input type="time" name="start_time" class="form-control" required>
+    </div>
+    <div class="col mb-3">
+      <label class="form-label">End time</label>
+      <input type="time" name="end_time" class="form-control" required>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col mb-3">
+      <label class="form-label">Capacity (students)</label>
+      <input type="number" min="1" name="capacity" value="1" class="form-control" required>
+    </div>
+    <div class="col mb-3">
+      <label class="form-label">Venue or link</label>
+      <input name="venue" class="form-control">
+    </div>
+  </div>
+  <button class="btn btn-primary">Create slot</button>
+  <a class="btn btn-link" href="{{ url_for('examiner_dashboard') }}">Cancel</a>
+</form>
+{% endif %}
+{% endblock %}

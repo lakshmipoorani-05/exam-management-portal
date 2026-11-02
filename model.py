@@ -70,3 +70,20 @@ exam_examiners = db.Table(
     db.Column("exam_id", db.Integer, db.ForeignKey("exams.id"), primary_key=True),
     db.Column("examiner_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
 )
+
+class Slot(db.Model):
+    __tablename__ = "slots"
+
+    id = db.Column(db.Integer, primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey("exams.id"), nullable=False)
+    examiner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    slot_date = db.Column(db.Date, nullable=False)
+    start_time = db.Column(db.Time, nullable=False)
+    end_time = db.Column(db.Time, nullable=False)
+    capacity = db.Column(db.Integer, nullable=False)
+    available = db.Column(db.Integer, nullable=False)   # seats left
+    venue = db.Column(db.String(150))
+    status = db.Column(db.String(20), nullable=False, default="Available")  # Available / Full / Cancelled / Completed
+
+    exam = db.relationship("Exam", backref=db.backref("slots", cascade="all, delete-orphan"))
+    examiner = db.relationship("User", backref="slots")

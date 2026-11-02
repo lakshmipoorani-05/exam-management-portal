@@ -2,8 +2,8 @@ from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, g, abort)
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
-from model import db, User, Course, Exam, Rubric
+from datetime import datetime, date
+from model import db, User, Course, Exam, Rubric, Slot
 app = Flask(__name__)
 app.secret_key = "change-this-later"
 
@@ -206,7 +206,9 @@ def admin_students():
 @app.route("/examiner")
 @role_required("examiner")
 def examiner_dashboard():
-    return render_template("examiner_dashboard.html")
+    slots = (Slot.query.filter_by(examiner_id=g.user.id)
+             .order_by(Slot.slot_date, Slot.start_time).all())
+    return render_template("examiner_dashboard.html", exams=g.user.assigned_exams, slots=slots)
 
 
 @app.route("/student")
@@ -491,6 +493,48 @@ def admin_exam_publish(exam_id):
     db.session.commit()
     flash("Results published." if exam.results_published else "Results hidden.", "success")
     return redirect(url_for("admin_exam_detail", exam_id=exam.id))
+
+@app.route("/examiner/slots/new", methods=["GET", "POST"])
+@role_required("examiner")
+def examiner_slot_new():
+    # only exams assigned to this examiner that are open for slot creation
+    open_exams = [e for e in g.user.assigned_exams if e.status == "Slot Creation"]
+
+    if request.method == "POST":
+        try:
+            exam = db.session.get(Exam, int(request.form["exam_id"]))
+            slot_date = datetime.strptime(request.form["slot_date"], "%Y-%m-%d").date()
+            start = datetime.strptime(request.form["start_time"], "%H:%M").time()
+            end = datetime.strptime(request.form["end_time"], "%H:%M").time()
+            capacity = int(request.form["capacity"])
+        except (ValueError, KeyError):
+            flash("Please fill every field with valid values.", "danger")
+            return render_template("examiner_slot_form.html", exams=open_exams)
+
+        today = date.today()
+        if exam is None or exam not in g.user.assigned_exams:
+            abort(403)  # not your exam
+        elif exam.status != "Slot Creation" or not (exam.slot_create_start <= today <= exam.slot_create_end):
+            flash("Slot creation is closed for this examination.", "danger")
+        elif slot_date < today:
+            flash("The slot date cannot be in the past.", "danger")
+        elif start >= end:
+            flash("End time must be after start time.", "danger")
+        elif capacity < 1:
+            flash("Capacity must be at least 1.", "danger")
+        elif Slot.query.filter(Slot.examiner_id == g.user.id, Slot.slot_date == slot_date,
+                               Slot.status != "Cancelled",
+                               Slot.start_time < end, Slot.end_time > start).first():
+            flash("This overlaps with another of your slots.", "danger")
+        else:
+            db.session.add(Slot(exam_id=exam.id, examiner_id=g.user.id, slot_date=slot_date,
+                                start_time=start, end_time=end, capacity=capacity,
+                                available=capacity, venue=request.form.get("venue")))
+            db.session.commit()
+            flash("Slot created.", "success")
+            return redirect(url_for("examiner_dashboard"))
+
+    return render_template("examiner_slot_form.html", exams=open_exams)
 
 if __name__ == "__main__":
     app.run(debug=True)

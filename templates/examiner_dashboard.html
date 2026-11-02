@@ -1,5 +1,57 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h3>Examiner Dashboard</h3>
-<p>Welcome, {{ g.user.name }}.</p>
+<h3 class="mb-3">Examiner Dashboard</h3>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card text-center shadow-sm"><div class="card-body">
+      <div class="fs-2 fw-bold">{{ exams|length }}</div><div class="text-muted">Assigned exams</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center shadow-sm"><div class="card-body">
+      <div class="fs-2 fw-bold">{{ slots|length }}</div><div class="text-muted">Slots created</div>
+    </div></div>
+  </div>
+</div>
+
+<h5>Assigned examinations</h5>
+<table class="table bg-white mb-4">
+  <thead><tr><th>Exam</th><th>Course</th><th>Type</th><th>Status</th><th>Slot creation window</th></tr></thead>
+  <tbody>
+    {% for e in exams %}
+    <tr>
+      <td>{{ e.name }}</td>
+      <td>{{ e.course.name }}</td>
+      <td>{{ e.exam_type }}</td>
+      <td>{{ e.status }}</td>
+      <td>{{ e.slot_create_start }} to {{ e.slot_create_end }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-muted">Nothing assigned yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="d-flex justify-content-between">
+  <h5>My slots</h5>
+  <a class="btn btn-sm btn-primary" href="{{ url_for('examiner_slot_new') }}">+ New slot</a>
+</div>
+<table class="table bg-white">
+  <thead><tr><th>Exam</th><th>Date</th><th>Time</th><th>Booked</th><th>Status</th></tr></thead>
+  <tbody>
+    {% for s in slots %}
+    <tr>
+      <td>{{ s.exam.name }}</td>
+      <td>{{ s.slot_date }}</td>
+      <td>{{ s.start_time.strftime("%H:%M") }} - {{ s.end_time.strftime("%H:%M") }}</td>
+      <td>{{ s.capacity - s.available }} / {{ s.capacity }}</td>
+      <td>{{ s.status }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-muted">No slots yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endblock %}
