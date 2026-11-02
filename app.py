@@ -151,6 +151,44 @@ def read_rubric_form(form):
         return None, "Weightage cannot be negative."
     return values, None
 
+def parse_slot_form(form):
+    """Read the slot form fields. Returns (values, error_message)."""
+    try:
+        values = {
+            "slot_date": datetime.strptime(form["slot_date"], "%Y-%m-%d").date(),
+            "start_time": datetime.strptime(form["start_time"], "%H:%M").time(),
+            "end_time": datetime.strptime(form["end_time"], "%H:%M").time(),
+            "capacity": int(form["capacity"]),
+            "venue": form.get("venue"),
+        }
+    except (ValueError, KeyError):
+        return None, "Please fill every field with valid values."
+    return values, None
+
+
+def check_slot_rules(exam, values, examiner_id, ignore_id=None):
+    """Return an error message if the slot breaks a rule, otherwise None."""
+    today = date.today()
+    if exam.status != "Slot Creation" or not (exam.slot_create_start <= today <= exam.slot_create_end):
+        return "Slot creation is closed for this examination."
+    if values["slot_date"] < today:
+        return "The slot date cannot be in the past."
+    if values["start_time"] >= values["end_time"]:
+        return "End time must be after start time."
+    if values["capacity"] < 1:
+        return "Capacity must be at least 1."
+    overlap = Slot.query.filter(
+        Slot.examiner_id == examiner_id,
+        Slot.slot_date == values["slot_date"],
+        Slot.status != "Cancelled",
+        Slot.id != (ignore_id or 0),          # ignore the slot being edited
+        Slot.start_time < values["end_time"],
+        Slot.end_time > values["start_time"],
+    ).first()
+    if overlap:
+        return "This overlaps with another of your slots."
+    return None
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -497,44 +535,74 @@ def admin_exam_publish(exam_id):
 @app.route("/examiner/slots/new", methods=["GET", "POST"])
 @role_required("examiner")
 def examiner_slot_new():
-    # only exams assigned to this examiner that are open for slot creation
     open_exams = [e for e in g.user.assigned_exams if e.status == "Slot Creation"]
-
     if request.method == "POST":
         try:
             exam = db.session.get(Exam, int(request.form["exam_id"]))
-            slot_date = datetime.strptime(request.form["slot_date"], "%Y-%m-%d").date()
-            start = datetime.strptime(request.form["start_time"], "%H:%M").time()
-            end = datetime.strptime(request.form["end_time"], "%H:%M").time()
-            capacity = int(request.form["capacity"])
         except (ValueError, KeyError):
-            flash("Please fill every field with valid values.", "danger")
-            return render_template("examiner_slot_form.html", exams=open_exams)
-
-        today = date.today()
+            exam = None
         if exam is None or exam not in g.user.assigned_exams:
             abort(403)  # not your exam
-        elif exam.status != "Slot Creation" or not (exam.slot_create_start <= today <= exam.slot_create_end):
-            flash("Slot creation is closed for this examination.", "danger")
-        elif slot_date < today:
-            flash("The slot date cannot be in the past.", "danger")
-        elif start >= end:
-            flash("End time must be after start time.", "danger")
-        elif capacity < 1:
-            flash("Capacity must be at least 1.", "danger")
-        elif Slot.query.filter(Slot.examiner_id == g.user.id, Slot.slot_date == slot_date,
-                               Slot.status != "Cancelled",
-                               Slot.start_time < end, Slot.end_time > start).first():
-            flash("This overlaps with another of your slots.", "danger")
+
+        values, error = parse_slot_form(request.form)
+        if not error:
+            error = check_slot_rules(exam, values, g.user.id)
+        if error:
+            flash(error, "danger")
         else:
-            db.session.add(Slot(exam_id=exam.id, examiner_id=g.user.id, slot_date=slot_date,
-                                start_time=start, end_time=end, capacity=capacity,
-                                available=capacity, venue=request.form.get("venue")))
+            db.session.add(Slot(exam_id=exam.id, examiner_id=g.user.id,
+                                available=values["capacity"], **values))
             db.session.commit()
             flash("Slot created.", "success")
             return redirect(url_for("examiner_dashboard"))
+    return render_template("examiner_slot_form.html", exams=open_exams, slot=None)
 
-    return render_template("examiner_slot_form.html", exams=open_exams)
+
+def get_own_slot(slot_id):
+    """Load a slot and make sure it belongs to the logged-in examiner."""
+    slot = db.session.get(Slot, slot_id)
+    if slot is None:
+        abort(404)
+    if slot.examiner_id != g.user.id:
+        abort(403)
+    return slot
+
+
+@app.route("/examiner/slots/<int:slot_id>/edit", methods=["GET", "POST"])
+@role_required("examiner")
+def examiner_slot_edit(slot_id):
+    slot = get_own_slot(slot_id)
+    if slot.exam.status != "Slot Creation":
+        flash("Slots can only be changed before booking starts.", "warning")
+        return redirect(url_for("examiner_dashboard"))
+
+    if request.method == "POST":
+        values, error = parse_slot_form(request.form)
+        if not error:
+            error = check_slot_rules(slot.exam, values, g.user.id, ignore_id=slot.id)
+        if error:
+            flash(error, "danger")
+        else:
+            for field, value in values.items():
+                setattr(slot, field, value)
+            slot.available = values["capacity"]   # nobody has booked yet
+            db.session.commit()
+            flash("Slot updated.", "success")
+            return redirect(url_for("examiner_dashboard"))
+    return render_template("examiner_slot_form.html", exams=[], slot=slot)
+
+
+@app.route("/examiner/slots/<int:slot_id>/delete", methods=["POST"])
+@role_required("examiner")
+def examiner_slot_delete(slot_id):
+    slot = get_own_slot(slot_id)
+    if slot.exam.status != "Slot Creation":
+        flash("Slots can only be removed before booking starts.", "warning")
+    else:
+        db.session.delete(slot)
+        db.session.commit()
+        flash("Slot removed.", "info")
+    return redirect(url_for("examiner_dashboard"))
 
 if __name__ == "__main__":
     app.run(debug=True)

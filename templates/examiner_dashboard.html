@@ -39,7 +39,7 @@
   <a class="btn btn-sm btn-primary" href="{{ url_for('examiner_slot_new') }}">+ New slot</a>
 </div>
 <table class="table bg-white">
-  <thead><tr><th>Exam</th><th>Date</th><th>Time</th><th>Booked</th><th>Status</th></tr></thead>
+  <thead><tr><th>Exam</th><th>Date</th><th>Time</th><th>Booked</th><th>Status</th><th></th></tr></thead>
   <tbody>
     {% for s in slots %}
     <tr>
@@ -48,9 +48,17 @@
       <td>{{ s.start_time.strftime("%H:%M") }} - {{ s.end_time.strftime("%H:%M") }}</td>
       <td>{{ s.capacity - s.available }} / {{ s.capacity }}</td>
       <td>{{ s.status }}</td>
+            <td class="text-end">
+        {% if s.exam.status == "Slot Creation" %}
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('examiner_slot_edit', slot_id=s.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('examiner_slot_delete', slot_id=s.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-danger">Delete</button>
+          </form>
+        {% endif %}
+      </td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="text-muted">No slots yet.</td></tr>
+    <tr><td colspan="6" class="text-muted">No slots yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
