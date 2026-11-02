@@ -46,5 +46,62 @@
   </div>
 </div>
 
+<div class="card mb-4">
+  <div class="card-header">Timeline control</div>
+  <div class="card-body">
+    <p class="mb-2">Current status: <b>{{ exam.status }}</b></p>
+    <form method="post" action="{{ url_for('admin_exam_status', exam_id=exam.id) }}" class="d-flex flex-wrap gap-2">
+      <button name="status" value="Slot Creation" class="btn btn-outline-success">Open slot creation</button>
+      <button name="status" value="Booking Open" class="btn btn-outline-success">Close slot creation &amp; open booking</button>
+      <button name="status" value="Closed" class="btn btn-outline-warning">Close booking</button>
+      <button name="status" value="Completed" class="btn btn-outline-dark">Mark completed</button>
+      <button name="status" value="Draft" class="btn btn-outline-secondary">Back to draft</button>
+    </form>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">Assigned examiners</div>
+  <div class="card-body">
+    <ul class="list-group mb-3">
+      {% for u in exam.examiners %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ u.name }} <small class="text-muted">{{ u.department or "" }}</small>
+        <form method="post" action="{{ url_for('admin_exam_examiners', exam_id=exam.id) }}">
+          <button name="remove" value="{{ u.id }}" class="btn btn-sm btn-outline-danger">Remove</button>
+        </form>
+      </li>
+      {% else %}
+      <li class="list-group-item text-muted">No examiners assigned yet.</li>
+      {% endfor %}
+    </ul>
+    {% if available %}
+    <form method="post" action="{{ url_for('admin_exam_examiners', exam_id=exam.id) }}" class="d-flex gap-2">
+      <select name="examiner_id" class="form-select">
+        {% for u in available %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-primary">Assign</button>
+    </form>
+    {% else %}
+      <p class="text-muted mb-0">No more active examiners to assign.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">Results</div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin_exam_publish', exam_id=exam.id) }}">
+      {% if exam.results_published %}
+        <p>Results are <b>published</b> and visible to students.</p>
+        <button name="publish" value="0" class="btn btn-outline-danger">Hide results</button>
+      {% else %}
+        <p>Results are <b>hidden</b> from students.</p>
+        <button name="publish" value="1" class="btn btn-success">Publish results</button>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
 <a href="{{ url_for('admin_exams') }}">&larr; Back to examinations</a>
 {% endblock %}

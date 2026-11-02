@@ -96,7 +96,7 @@ def role_required(role):
     return decorator
 
 EXAM_TYPES = ["Viva", "Practical", "Project Demo", "Assessment"]
-
+EXAM_STATUSES = ["Draft", "Slot Creation", "Booking Open", "Closed", "Completed"]
 
 def parse_date(text):
     return datetime.strptime(text, "%Y-%m-%d").date()
@@ -391,8 +391,10 @@ def admin_exam_detail(exam_id):
     exam = db.session.get(Exam, exam_id)
     if exam is None:
         abort(404)
-    return render_template("admin_exam_detail.html", exam=exam)
-
+    active = User.query.filter_by(role="examiner", status="active").all()
+    available = [u for u in active if u not in exam.examiners]
+    return render_template("admin_exam_detail.html", exam=exam,
+                           statuses=EXAM_STATUSES, available=available)
 
 @app.route("/admin/exams/<int:exam_id>/rubrics", methods=["POST"])
 @role_required("admin")
@@ -440,6 +442,55 @@ def admin_rubric_delete(rubric_id):
     db.session.commit()
     flash("Criterion removed.", "info")
     return redirect(url_for("admin_exam_detail", exam_id=exam_id))
+
+@app.route("/admin/exams/<int:exam_id>/status", methods=["POST"])
+@role_required("admin")
+def admin_exam_status(exam_id):
+    exam = db.session.get(Exam, exam_id)
+    if exam is None:
+        abort(404)
+    status = request.form["status"]
+    if status not in EXAM_STATUSES:
+        abort(400)
+    if status == "Booking Open" and not exam.rubrics:
+        flash("Tip: add at least one rubric criterion before students start booking.", "warning")
+    exam.status = status
+    db.session.commit()
+    flash(f"Status set to {status}.", "success")
+    return redirect(url_for("admin_exam_detail", exam_id=exam.id))
+
+
+@app.route("/admin/exams/<int:exam_id>/examiners", methods=["POST"])
+@role_required("admin")
+def admin_exam_examiners(exam_id):
+    exam = db.session.get(Exam, exam_id)
+    if exam is None:
+        abort(404)
+    if request.form.get("remove"):
+        examiner = db.session.get(User, int(request.form["remove"]))
+        if examiner in exam.examiners:
+            exam.examiners.remove(examiner)
+            flash("Examiner removed from this examination.", "info")
+    elif request.form.get("examiner_id"):
+        examiner = db.session.get(User, int(request.form["examiner_id"]))
+        if examiner and examiner.role == "examiner" and examiner.status == "active" \
+                and examiner not in exam.examiners:
+            exam.examiners.append(examiner)
+            flash("Examiner assigned.", "success")
+    db.session.commit()
+    return redirect(url_for("admin_exam_detail", exam_id=exam.id))
+
+
+@app.route("/admin/exams/<int:exam_id>/publish", methods=["POST"])
+@role_required("admin")
+def admin_exam_publish(exam_id):
+    exam = db.session.get(Exam, exam_id)
+    if exam is None:
+        abort(404)
+    exam.results_published = request.form.get("publish") == "1"
+    db.session.commit()
+    flash("Results published." if exam.results_published else "Results hidden.", "success")
+    return redirect(url_for("admin_exam_detail", exam_id=exam.id))
 
 if __name__ == "__main__":
     app.run(debug=True)
