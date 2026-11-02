@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h3>Edit criterion</h3>
+<form method="post" class="card card-body col-md-6">
+  <div class="mb-3">
+    <label class="form-label">Criterion</label>
+    <input name="criterion" class="form-control" value="{{ rubric.criterion }}" required>
+  </div>
+  <div class="row">
+    <div class="col mb-3">
+      <label class="form-label">Maximum marks</label>
+      <input type="number" step="any" min="0.1" name="max_marks" class="form-control" value="{{ rubric.max_marks }}" required>
+    </div>
+    <div class="col mb-3">
+      <label class="form-label">Weightage</label>
+      <input type="number" step="any" min="0" name="weightage" class="form-control" value="{{ rubric.weightage }}">
+    </div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Description</label>
+    <textarea name="description" class="form-control">{{ rubric.description or "" }}</textarea>
+  </div>
+  <button class="btn btn-primary">Save</button>
+  <a class="btn btn-link" href="{{ url_for('admin_exam_detail', exam_id=rubric.exam_id) }}">Cancel</a>
+</form>
+{% endblock %}

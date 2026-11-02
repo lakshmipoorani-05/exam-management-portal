@@ -3,7 +3,7 @@ from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, g, abort)
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from model import db, User, Course, Exam
+from model import db, User, Course, Exam, Rubric
 app = Flask(__name__)
 app.secret_key = "change-this-later"
 
@@ -130,6 +130,25 @@ def read_exam_form(form):
         return None, "Slot creation end date cannot be before its start date."
     if values["booking_end"] < values["booking_start"]:
         return None, "Booking end date cannot be before its start date."
+    return values, None
+
+def read_rubric_form(form):
+    """Read and validate a rubric criterion. Returns (values, error_message)."""
+    try:
+        values = {
+            "criterion": form["criterion"].strip(),
+            "max_marks": float(form["max_marks"]),
+            "weightage": float(form.get("weightage") or 1),
+            "description": form.get("description"),
+        }
+    except (ValueError, KeyError):
+        return None, "Please enter valid numbers for marks and weightage."
+    if not values["criterion"]:
+        return None, "Criterion name is required."
+    if values["max_marks"] <= 0:
+        return None, "Maximum marks must be greater than 0."
+    if values["weightage"] < 0:
+        return None, "Weightage cannot be negative."
     return values, None
 
 @app.route("/login", methods=["GET", "POST"])
@@ -365,6 +384,62 @@ def admin_exam_delete(exam_id):
     db.session.commit()
     flash("Examination removed.", "info")
     return redirect(url_for("admin_exams"))
+
+@app.route("/admin/exams/<int:exam_id>")
+@role_required("admin")
+def admin_exam_detail(exam_id):
+    exam = db.session.get(Exam, exam_id)
+    if exam is None:
+        abort(404)
+    return render_template("admin_exam_detail.html", exam=exam)
+
+
+@app.route("/admin/exams/<int:exam_id>/rubrics", methods=["POST"])
+@role_required("admin")
+def admin_rubric_add(exam_id):
+    exam = db.session.get(Exam, exam_id)
+    if exam is None:
+        abort(404)
+    values, error = read_rubric_form(request.form)
+    if error:
+        flash(error, "danger")
+    else:
+        db.session.add(Rubric(exam_id=exam.id, **values))
+        db.session.commit()
+        flash("Criterion added.", "success")
+    return redirect(url_for("admin_exam_detail", exam_id=exam.id))
+
+
+@app.route("/admin/rubrics/<int:rubric_id>/edit", methods=["GET", "POST"])
+@role_required("admin")
+def admin_rubric_edit(rubric_id):
+    rubric = db.session.get(Rubric, rubric_id)
+    if rubric is None:
+        abort(404)
+    if request.method == "POST":
+        values, error = read_rubric_form(request.form)
+        if error:
+            flash(error, "danger")
+        else:
+            for field, value in values.items():
+                setattr(rubric, field, value)
+            db.session.commit()
+            flash("Criterion updated.", "success")
+            return redirect(url_for("admin_exam_detail", exam_id=rubric.exam_id))
+    return render_template("admin_rubric_form.html", rubric=rubric)
+
+
+@app.route("/admin/rubrics/<int:rubric_id>/delete", methods=["POST"])
+@role_required("admin")
+def admin_rubric_delete(rubric_id):
+    rubric = db.session.get(Rubric, rubric_id)
+    if rubric is None:
+        abort(404)
+    exam_id = rubric.exam_id
+    db.session.delete(rubric)
+    db.session.commit()
+    flash("Criterion removed.", "info")
+    return redirect(url_for("admin_exam_detail", exam_id=exam_id))
 
 if __name__ == "__main__":
     app.run(debug=True)

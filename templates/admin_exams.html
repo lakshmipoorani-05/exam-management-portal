@@ -20,6 +20,7 @@
       <td>{{ e.max_marks }}</td>
       <td><span class="badge bg-secondary">{{ e.status }}</span></td>
       <td class="text-end">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin_exam_detail', exam_id=e.id) }}">Manage</a>
         <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_exam_edit', exam_id=e.id) }}">Edit</a>
         <form method="post" action="{{ url_for('admin_exam_delete', exam_id=e.id) }}" class="d-inline">
           <button class="btn btn-sm btn-outline-danger">Delete</button>

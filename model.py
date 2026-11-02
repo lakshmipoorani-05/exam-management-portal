@@ -49,3 +49,16 @@ class Exam(db.Model):
     # exam.course gives the Course; course.exams gives its exams.
     # Deleting a course also deletes its exams.
     course = db.relationship("Course", backref=db.backref("exams", cascade="all, delete-orphan"))
+
+class Rubric(db.Model):
+    __tablename__ = "rubrics"
+
+    id = db.Column(db.Integer, primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey("exams.id"), nullable=False)
+    criterion = db.Column(db.String(150), nullable=False)
+    max_marks = db.Column(db.Float, nullable=False)
+    weightage = db.Column(db.Float, nullable=False, default=1)
+    description = db.Column(db.Text)
+
+    # deleting an exam also deletes its rubric criteria
+    exam = db.relationship("Exam", backref=db.backref("rubrics", cascade="all, delete-orphan"))

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h3>{{ exam.name }} <small class="text-muted">{{ exam.course.code }} · {{ exam.exam_type }}</small></h3>
+<p>
+  Status: <span class="badge bg-primary">{{ exam.status }}</span> ·
+  {{ exam.duration }} min · {{ exam.max_marks }} marks<br>
+  Slot creation: {{ exam.slot_create_start }} to {{ exam.slot_create_end }} ·
+  Booking: {{ exam.booking_start }} to {{ exam.booking_end }}
+</p>
+
+<div class="card mb-4">
+  <div class="card-header">Rubric criteria</div>
+  <div class="card-body">
+    <table class="table table-sm">
+      <thead>
+        <tr><th>Criterion</th><th>Max marks</th><th>Weightage</th><th>Description</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for r in exam.rubrics %}
+        <tr>
+          <td>{{ r.criterion }}</td>
+          <td>{{ r.max_marks }}</td>
+          <td>{{ r.weightage }}</td>
+          <td>{{ r.description or "" }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_rubric_edit', rubric_id=r.id) }}">Edit</a>
+            <form method="post" action="{{ url_for('admin_rubric_delete', rubric_id=r.id) }}" class="d-inline">
+              <button class="btn btn-sm btn-outline-danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-muted">No criteria yet. Add at least one below.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <form method="post" action="{{ url_for('admin_rubric_add', exam_id=exam.id) }}" class="row g-2">
+      <div class="col-md-4"><input name="criterion" class="form-control" placeholder="Criterion" required></div>
+      <div class="col-md-2"><input name="max_marks" type="number" step="any" min="0.1" class="form-control" placeholder="Max marks" required></div>
+      <div class="col-md-2"><input name="weightage" type="number" step="any" min="0" class="form-control" placeholder="Weight" value="1"></div>
+      <div class="col-md-4"><input name="description" class="form-control" placeholder="Description (optional)"></div>
+      <div class="col-12"><button class="btn btn-primary btn-sm">Add criterion</button></div>
+    </form>
+  </div>
+</div>
+
+<a href="{{ url_for('admin_exams') }}">&larr; Back to examinations</a>
+{% endblock %}
