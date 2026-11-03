@@ -252,7 +252,12 @@ def examiner_dashboard():
 @app.route("/student")
 @role_required("student")
 def student_dashboard():
-    return render_template("student_dashboard.html")
+    open_exams = Exam.query.filter_by(status="Booking Open").all()
+    available_slots = (Slot.query.join(Exam)
+                       .filter(Exam.status == "Booking Open", Slot.status == "Available")
+                       .count())
+    return render_template("student_dashboard.html", open_exams=open_exams,
+                           available_slots=available_slots)
 
 
 @app.errorhandler(403)
@@ -603,6 +608,36 @@ def examiner_slot_delete(slot_id):
         db.session.commit()
         flash("Slot removed.", "info")
     return redirect(url_for("examiner_dashboard"))
+
+@app.route("/student/exams")
+@role_required("student")
+def student_exams():
+    term = request.args.get("q", "").strip()
+    exam_type = request.args.get("type", "")
+
+    query = Exam.query.join(Course).filter(Exam.status != "Draft")  # students never see drafts
+    if term:
+        like = f"%{term}%"
+        query = query.filter(db.or_(Exam.name.ilike(like),
+                                    Course.name.ilike(like),
+                                    Course.code.ilike(like)))
+    if exam_type in EXAM_TYPES:
+        query = query.filter(Exam.exam_type == exam_type)
+
+    exams = query.order_by(Exam.id.desc()).all()
+    return render_template("student_exams.html", exams=exams, term=term,
+                           exam_type=exam_type, exam_types=EXAM_TYPES)
+
+
+@app.route("/student/exams/<int:exam_id>")
+@role_required("student")
+def student_exam_detail(exam_id):
+    exam = db.session.get(Exam, exam_id)
+    if exam is None or exam.status == "Draft":
+        abort(404)
+    slots = (Slot.query.filter(Slot.exam_id == exam.id, Slot.status != "Cancelled")
+             .order_by(Slot.slot_date, Slot.start_time).all())
+    return render_template("student_exam_detail.html", exam=exam, slots=slots)
 
 if __name__ == "__main__":
     app.run(debug=True)

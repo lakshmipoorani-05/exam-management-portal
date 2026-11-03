@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h3 class="mb-3">Examinations</h3>
+
+<form method="get" class="row g-2 mb-3">
+  <div class="col-md-5">
+    <input name="q" value="{{ term }}" class="form-control" placeholder="Search by exam or course">
+  </div>
+  <div class="col-md-3">
+    <select name="type" class="form-select">
+      <option value="">All types</option>
+      {% for t in exam_types %}
+        <option {{ "selected" if t == exam_type }}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto"><button class="btn btn-primary">Filter</button></div>
+</form>
+
+<table class="table table-striped bg-white">
+  <thead>
+    <tr><th>Exam</th><th>Course</th><th>Type</th><th>Duration</th><th>Booking window</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for e in exams %}
+    <tr>
+      <td>{{ e.name }}</td>
+      <td>{{ e.course.code }}</td>
+      <td>{{ e.exam_type }}</td>
+      <td>{{ e.duration }} min</td>
+      <td>{{ e.booking_start }} to {{ e.booking_end }}</td>
+      <td>{{ e.status }}</td>
+      <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('student_exam_detail', exam_id=e.id) }}">View slots</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="text-center text-muted">No examinations found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
