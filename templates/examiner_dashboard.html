@@ -14,6 +14,16 @@
       <div class="fs-2 fw-bold">{{ slots|length }}</div><div class="text-muted">Slots created</div>
     </div></div>
   </div>
+    <div class="col-md-4">
+    <div class="card text-center shadow-sm"><div class="card-body">
+      <div class="fs-2 fw-bold">{{ booked }}</div><div class="text-muted">Students booked</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center shadow-sm"><div class="card-body">
+      <div class="fs-2 fw-bold">{{ pending }}</div><div class="text-muted">Pending evaluations</div>
+    </div></div>
+  </div>
 </div>
 
 <h5>Assigned examinations</h5>
@@ -49,6 +59,7 @@
       <td>{{ s.capacity - s.available }} / {{ s.capacity }}</td>
       <td>{{ s.status }}</td>
             <td class="text-end">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('examiner_slot_students', slot_id=s.id) }}">Students</a>
         {% if s.exam.status == "Slot Creation" %}
           <a class="btn btn-sm btn-outline-primary" href="{{ url_for('examiner_slot_edit', slot_id=s.id) }}">Edit</a>
           <form method="post" action="{{ url_for('examiner_slot_delete', slot_id=s.id) }}" class="d-inline">

@@ -3,7 +3,8 @@ from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, g, abort)
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
-from model import db, User, Course, Exam, Rubric, Slot, Booking
+from model import db, User, Course, Exam, Rubric, Slot, Booking, Evaluation
+
 app = Flask(__name__)
 app.secret_key = "change-this-later"
 
@@ -246,8 +247,11 @@ def admin_students():
 def examiner_dashboard():
     slots = (Slot.query.filter_by(examiner_id=g.user.id)
              .order_by(Slot.slot_date, Slot.start_time).all())
-    return render_template("examiner_dashboard.html", exams=g.user.assigned_exams, slots=slots)
-
+    bookings = (Booking.query.join(Slot)
+                .filter(Slot.examiner_id == g.user.id, Booking.status != "Cancelled").all())
+    pending = sum(1 for b in bookings if b.status == "Booked")   # not evaluated yet
+    return render_template("examiner_dashboard.html", exams=g.user.assigned_exams, slots=slots,
+                           booked=len(bookings), pending=pending)
 
 @app.route("/student")
 @role_required("student")
@@ -713,6 +717,61 @@ def student_cancel(booking_id):
         db.session.commit()
         flash("Booking cancelled.", "info")
     return redirect(url_for("student_bookings"))
+
+@app.route("/examiner/slots/<int:slot_id>/students")
+@role_required("examiner")
+def examiner_slot_students(slot_id):
+    slot = get_own_slot(slot_id)
+    bookings = [b for b in slot.bookings if b.status != "Cancelled"]
+    return render_template("examiner_slot_students.html", slot=slot, bookings=bookings)
+
+
+@app.route("/examiner/evaluate/<int:booking_id>", methods=["GET", "POST"])
+@role_required("examiner")
+def examiner_evaluate(booking_id):
+    booking = db.session.get(Booking, booking_id)
+    if booking is None or booking.status == "Cancelled":
+        abort(404)
+    if booking.slot.examiner_id != g.user.id:
+        abort(403)      # only the examiner of this slot may evaluate this student
+
+    exam = booking.exam
+    rubrics = exam.rubrics
+    given = {e.rubric_id: e.marks for e in booking.evaluations}
+
+    if request.method == "POST" and rubrics:
+        try:
+            marks = {r.id: float(request.form[f"m{r.id}"]) for r in rubrics}
+        except (ValueError, KeyError):
+            flash("Enter a valid number for every criterion.", "danger")
+            return render_template("examiner_evaluate.html", booking=booking, exam=exam,
+                                   rubrics=rubrics, given=given)
+
+        if any(not 0 <= marks[r.id] <= r.max_marks for r in rubrics):
+            flash("Each mark must be between 0 and that criterion's maximum.", "danger")
+        else:
+            # weighted total, scaled to the exam's maximum marks
+            weight_sum = sum(r.weightage for r in rubrics) or 1
+            total = sum(marks[r.id] / r.max_marks * r.weightage for r in rubrics)
+            total = total / weight_sum * exam.max_marks
+
+            for r in rubrics:
+                row = db.session.get(Evaluation, (booking.id, r.id))
+                if row:
+                    row.marks = marks[r.id]
+                else:
+                    db.session.add(Evaluation(booking_id=booking.id, rubric_id=r.id, marks=marks[r.id]))
+
+            booking.total_marks = round(total, 2)
+            booking.remarks = request.form.get("remarks")
+            booking.status = "Completed"
+            booking.evaluated_at = datetime.now()
+            db.session.commit()
+            flash(f"Saved. Total: {booking.total_marks} / {exam.max_marks}", "success")
+            return redirect(url_for("examiner_slot_students", slot_id=booking.slot_id))
+
+    return render_template("examiner_evaluate.html", booking=booking, exam=exam,
+                           rubrics=rubrics, given=given)
 
 if __name__ == "__main__":
     app.run(debug=True)

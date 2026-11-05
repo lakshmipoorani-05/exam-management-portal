@@ -106,3 +106,14 @@ class Booking(db.Model):
     student = db.relationship("User", backref="bookings")
     slot = db.relationship("Slot", backref=db.backref("bookings", cascade="all, delete-orphan"))
     exam = db.relationship("Exam", backref=db.backref("bookings", cascade="all, delete-orphan"))
+
+class Evaluation(db.Model):
+    """One mark for one rubric criterion for one booking."""
+    __tablename__ = "evaluations"
+
+    booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), primary_key=True)
+    rubric_id = db.Column(db.Integer, db.ForeignKey("rubrics.id"), primary_key=True)
+    marks = db.Column(db.Float, nullable=False)
+
+    booking = db.relationship("Booking", backref=db.backref("evaluations", cascade="all, delete-orphan"))
+    rubric = db.relationship("Rubric", backref=db.backref("evaluations", cascade="all, delete-orphan"))

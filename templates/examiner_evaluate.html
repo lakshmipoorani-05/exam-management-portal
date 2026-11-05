@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h3>Evaluate {{ booking.student.name }}
+  <small class="text-muted">{{ exam.name }} (maximum {{ exam.max_marks }})</small></h3>
+
+{% if not rubrics %}
+  <div class="alert alert-warning">This examination has no rubric criteria yet. Ask the admin to add some.</div>
+{% else %}
+<form method="post" class="card card-body col-lg-8">
+  {% for r in rubrics %}
+  <div class="row mb-3">
+    <label class="col-md-6 col-form-label">
+      {{ r.criterion }} <small class="text-muted">(weight {{ r.weightage }}) {{ r.description or "" }}</small>
+    </label>
+    <div class="col-md-6">
+      <div class="input-group">
+        <input type="number" step="any" min="0" max="{{ r.max_marks }}" name="m{{ r.id }}"
+               class="form-control" value="{{ given.get(r.id, '') }}" required>
+        <span class="input-group-text">/ {{ r.max_marks }}</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  <div class="mb-3">
+    <label class="form-label">Remarks / feedback</label>
+    <textarea name="remarks" class="form-control" rows="3">{{ booking.remarks or "" }}</textarea>
+  </div>
+  <button class="btn btn-primary">Submit marks</button>
+</form>
+{% endif %}
+<a href="{{ url_for('examiner_slot_students', slot_id=booking.slot_id) }}">&larr; Back</a>
+{% endblock %}
