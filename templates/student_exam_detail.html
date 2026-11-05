@@ -9,8 +9,14 @@
 </p>
 {% if exam.instructions %}<p>{{ exam.instructions }}</p>{% endif %}
 
+{% if mine %}
+  <div class="alert alert-success">You have a booking for this examination.</div>
+{% endif %}
+
 <table class="table bg-white">
-  <thead><tr><th>Date</th><th>Time</th><th>Examiner</th><th>Venue</th><th>Seats left</th></tr></thead>
+  <thead>
+    <tr><th>Date</th><th>Time</th><th>Examiner</th><th>Venue</th><th>Seats left</th><th></th></tr>
+  </thead>
   <tbody>
     {% for s in slots %}
     <tr>
@@ -19,9 +25,20 @@
       <td>{{ s.examiner.name }}</td>
       <td>{{ s.venue or "" }}</td>
       <td>{{ s.available }} / {{ s.capacity }}</td>
+      <td>
+        {% if mine and mine.slot_id == s.id %}
+          <span class="badge bg-success">Your booking</span>
+        {% elif s.status == "Full" %}
+          <span class="badge bg-secondary">Full</span>
+        {% elif exam.status == "Booking Open" and s.status == "Available" and not mine %}
+          <form method="post" action="{{ url_for('student_book', slot_id=s.id) }}">
+            <button class="btn btn-sm btn-success">Book</button>
+          </form>
+        {% endif %}
+      </td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="text-muted">No slots yet.</td></tr>
+    <tr><td colspan="6" class="text-muted">No slots yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>

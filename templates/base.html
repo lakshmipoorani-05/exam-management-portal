@@ -14,6 +14,9 @@
         <div>
         {% if g.user %}
           <span class="text-white me-2">{{ g.user.name }} ({{ g.user.role }})</span>
+          {% if g.user.role == "student" %}
+            <a class="btn btn-outline-light btn-sm" href="/student/bookings">My bookings</a>
+          {% endif %}
           <a class="btn btn-light btn-sm" href="/logout">Logout</a>
         {% else %}
           <a class="btn btn-outline-light btn-sm" href="/login">Login</a>

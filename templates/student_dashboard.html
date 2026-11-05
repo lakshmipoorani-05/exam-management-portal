@@ -15,6 +15,22 @@
     </div></div>
   </div>
 </div>
+<h5>Upcoming (booked) examinations</h5>
+<table class="table bg-white mb-4">
+  <thead><tr><th>Exam</th><th>Date</th><th>Time</th><th>Examiner</th></tr></thead>
+  <tbody>
+    {% for b in upcoming %}
+    <tr>
+      <td>{{ b.exam.name }}</td>
+      <td>{{ b.slot.slot_date }}</td>
+      <td>{{ b.slot.start_time.strftime("%H:%M") }} - {{ b.slot.end_time.strftime("%H:%M") }}</td>
+      <td>{{ b.slot.examiner.name }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="text-muted">Nothing booked yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 
 <a class="btn btn-primary" href="{{ url_for('student_exams') }}">Browse examinations</a>
 {% endblock %}

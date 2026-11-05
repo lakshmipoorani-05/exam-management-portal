@@ -3,7 +3,7 @@ from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, g, abort)
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
-from model import db, User, Course, Exam, Rubric, Slot
+from model import db, User, Course, Exam, Rubric, Slot, Booking
 app = Flask(__name__)
 app.secret_key = "change-this-later"
 
@@ -256,8 +256,10 @@ def student_dashboard():
     available_slots = (Slot.query.join(Exam)
                        .filter(Exam.status == "Booking Open", Slot.status == "Available")
                        .count())
+    upcoming = Booking.query.filter_by(student_id=g.user.id, status="Booked").all()
     return render_template("student_dashboard.html", open_exams=open_exams,
-                           available_slots=available_slots)
+                           available_slots=available_slots, upcoming=upcoming)
+
 
 
 @app.errorhandler(403)
@@ -581,6 +583,10 @@ def examiner_slot_edit(slot_id):
         flash("Slots can only be changed before booking starts.", "warning")
         return redirect(url_for("examiner_dashboard"))
 
+    if any(b.status != "Cancelled" for b in slot.bookings):
+        flash("This slot already has bookings and cannot be changed.", "warning")
+        return redirect(url_for("examiner_dashboard"))
+    
     if request.method == "POST":
         values, error = parse_slot_form(request.form)
         if not error:
@@ -603,6 +609,8 @@ def examiner_slot_delete(slot_id):
     slot = get_own_slot(slot_id)
     if slot.exam.status != "Slot Creation":
         flash("Slots can only be removed before booking starts.", "warning")
+    elif any(b.status != "Cancelled" for b in slot.bookings):
+        flash("This slot already has bookings and cannot be removed.", "warning")
     else:
         db.session.delete(slot)
         db.session.commit()
@@ -637,7 +645,74 @@ def student_exam_detail(exam_id):
         abort(404)
     slots = (Slot.query.filter(Slot.exam_id == exam.id, Slot.status != "Cancelled")
              .order_by(Slot.slot_date, Slot.start_time).all())
-    return render_template("student_exam_detail.html", exam=exam, slots=slots)
+    mine = Booking.query.filter(Booking.student_id == g.user.id, Booking.exam_id == exam.id,
+                                Booking.status != "Cancelled").first()
+    return render_template("student_exam_detail.html", exam=exam, slots=slots, mine=mine)
+
+@app.route("/student/book/<int:slot_id>", methods=["POST"])
+@role_required("student")
+def student_book(slot_id):
+    slot = db.session.get(Slot, slot_id)
+    if slot is None:
+        abort(404)
+    exam = slot.exam
+    today = date.today()
+
+    if exam.status != "Booking Open" or not (exam.booking_start <= today <= exam.booking_end):
+        flash("Booking is not open for this examination.", "danger")
+    elif Booking.query.filter(Booking.student_id == g.user.id, Booking.exam_id == exam.id,
+                              Booking.status != "Cancelled").first():
+        flash("You already have a booking for this examination.", "danger")
+    else:
+        # Take one seat in a single database step. It only succeeds if a seat
+        # is still free, so two students cannot take the last seat together.
+        taken = db.session.execute(
+            db.update(Slot)
+            .where(Slot.id == slot.id, Slot.available > 0, Slot.status == "Available")
+            .values(available=Slot.available - 1)
+        )
+        if taken.rowcount == 0:
+            db.session.rollback()
+            flash("Sorry, this slot is full.", "danger")
+        else:
+            db.session.add(Booking(student_id=g.user.id, slot_id=slot.id, exam_id=exam.id))
+            db.session.refresh(slot)          # reload the new seat count
+            if slot.available <= 0:
+                slot.status = "Full"          # close the slot automatically
+            db.session.commit()
+            flash("Slot booked successfully!", "success")
+            return redirect(url_for("student_bookings"))
+
+    return redirect(url_for("student_exam_detail", exam_id=exam.id))
+
+
+@app.route("/student/bookings")
+@role_required("student")
+def student_bookings():
+    bookings = Booking.query.filter_by(student_id=g.user.id).order_by(Booking.id.desc()).all()
+    return render_template("student_bookings.html", bookings=bookings, today=date.today())
+
+
+@app.route("/student/cancel/<int:booking_id>", methods=["POST"])
+@role_required("student")
+def student_cancel(booking_id):
+    booking = db.session.get(Booking, booking_id)
+    if booking is None or booking.student_id != g.user.id:
+        abort(404)              # also hides other students' bookings
+    exam = booking.exam
+    if booking.status != "Booked":
+        flash("Only active bookings can be cancelled.", "warning")
+    elif exam.status != "Booking Open" or date.today() > exam.booking_end:
+        flash("The booking deadline has passed, so this booking can no longer be cancelled.", "danger")
+    else:
+        booking.status = "Cancelled"        # kept in the table as history
+        slot = booking.slot
+        slot.available += 1                 # give the seat back
+        if slot.status == "Full":
+            slot.status = "Available"
+        db.session.commit()
+        flash("Booking cancelled.", "info")
+    return redirect(url_for("student_bookings"))
 
 if __name__ == "__main__":
     app.run(debug=True)

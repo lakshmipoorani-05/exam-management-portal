@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 
 # db is created with no app attached, so model.py can be imported anywhere.
@@ -87,3 +88,21 @@ class Slot(db.Model):
 
     exam = db.relationship("Exam", backref=db.backref("slots", cascade="all, delete-orphan"))
     examiner = db.relationship("User", backref="slots")
+
+class Booking(db.Model):
+    __tablename__ = "bookings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    slot_id = db.Column(db.Integer, db.ForeignKey("slots.id"), nullable=False)
+    exam_id = db.Column(db.Integer, db.ForeignKey("exams.id"), nullable=False)
+    booking_date = db.Column(db.DateTime, default=datetime.now)
+    status = db.Column(db.String(20), nullable=False, default="Booked")  # Booked / Cancelled / Completed
+    # filled in when the examiner evaluates (next phase)
+    total_marks = db.Column(db.Float)
+    remarks = db.Column(db.Text)
+    evaluated_at = db.Column(db.DateTime)
+
+    student = db.relationship("User", backref="bookings")
+    slot = db.relationship("Slot", backref=db.backref("bookings", cascade="all, delete-orphan"))
+    exam = db.relationship("Exam", backref=db.backref("bookings", cascade="all, delete-orphan"))
