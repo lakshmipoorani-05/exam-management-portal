@@ -230,6 +230,8 @@ def admin_dashboard():
         "Examinations": Exam.query.count(),
         "Examiners": User.query.filter_by(role="examiner").count(),
         "Students": User.query.filter_by(role="student").count(),
+        "Slots": Slot.query.count(),
+        "Bookings": Booking.query.count(),
     }
     pending = User.query.filter_by(role="examiner", status="pending").count()
     return render_template("admin_dashboard.html", stats=stats, pending=pending)
@@ -809,6 +811,41 @@ def student_profile():
             flash("Profile updated.", "success")
             return redirect(url_for("student_profile"))
     return render_template("student_profile.html")
+
+@app.route("/admin/slots")
+@role_required("admin")
+def admin_slots():
+    slots = Slot.query.order_by(Slot.slot_date, Slot.start_time).all()
+    examiners = User.query.filter_by(role="examiner", status="active").all()
+    return render_template("admin_slots.html", slots=slots, examiners=examiners)
+
+
+@app.route("/admin/slots/<int:slot_id>/examiner", methods=["POST"])
+@role_required("admin")
+def admin_change_examiner(slot_id):
+    slot = db.session.get(Slot, slot_id)
+    if slot is None:
+        abort(404)
+    try:
+        new = db.session.get(User, int(request.form["examiner_id"]))
+    except (ValueError, KeyError):
+        new = None
+
+    if new is None or new.role != "examiner" or new.status != "active":
+        flash("Please choose an active examiner.", "danger")
+    elif new.id == slot.examiner_id:
+        flash("That examiner is already assigned to this slot.", "info")
+    elif Slot.query.filter(Slot.examiner_id == new.id, Slot.slot_date == slot.slot_date,
+                           Slot.status != "Cancelled", Slot.id != slot.id,
+                           Slot.start_time < slot.end_time, Slot.end_time > slot.start_time).first():
+        flash(f"{new.name} already has a slot that overlaps with this time.", "danger")
+    else:
+        slot.examiner_id = new.id
+        if new not in slot.exam.examiners:      # the new examiner must be assigned to the exam
+            slot.exam.examiners.append(new)
+        db.session.commit()
+        flash(f"Slot reassigned to {new.name}.", "success")
+    return redirect(url_for("admin_slots"))
 
 if __name__ == "__main__":
     app.run(debug=True)
