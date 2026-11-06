@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h3 class="mb-3">Published Results and Feedback</h3>
+
+{% for b in results %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h5>{{ b.exam.name }} <span class="badge bg-success">{{ b.total_marks }} / {{ b.exam.max_marks }}</span></h5>
+    <p class="mb-1"><b>Examiner:</b> {{ b.slot.examiner.name }} · <b>Date:</b> {{ b.slot.slot_date }}</p>
+    <p class="mb-2"><b>Remarks:</b> {{ b.remarks or "No remarks." }}</p>
+    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('student_scorecard', booking_id=b.id) }}">View scorecard</a>
+  </div>
+</div>
+{% else %}
+<p class="text-muted">No results have been published yet.</p>
+{% endfor %}
+{% endblock %}

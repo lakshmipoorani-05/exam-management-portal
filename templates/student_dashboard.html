@@ -14,6 +14,11 @@
       <div class="fs-2 fw-bold">{{ available_slots }}</div><div class="text-muted">Available slots</div>
     </div></div>
   </div>
+    <div class="col-md-4">
+    <div class="card text-center shadow-sm"><div class="card-body">
+      <div class="fs-2 fw-bold">{{ results|length }}</div><div class="text-muted">Published results</div>
+    </div></div>
+  </div>
 </div>
 <h5>Upcoming (booked) examinations</h5>
 <table class="table bg-white mb-4">
@@ -33,4 +38,6 @@
 </table>
 
 <a class="btn btn-primary" href="{{ url_for('student_exams') }}">Browse examinations</a>
+<a class="btn btn-outline-primary" href="{{ url_for('student_results') }}">My results</a>
+<a class="btn btn-outline-primary" href="{{ url_for('student_profile') }}">Edit profile</a>
 {% endblock %}

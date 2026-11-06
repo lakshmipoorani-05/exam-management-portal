@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <h3 class="text-center">Examination Scorecard</h3>
+    <hr>
+    <p>
+      <b>Student:</b> {{ g.user.name }} ({{ g.user.roll_no or "-" }})<br>
+      <b>Examination:</b> {{ exam.name }} ({{ exam.exam_type }})<br>
+      <b>Examiner:</b> {{ booking.slot.examiner.name }}<br>
+      <b>Date:</b> {{ booking.slot.slot_date }}
+    </p>
+    <table class="table">
+      <thead><tr><th>Criterion</th><th>Marks</th><th>Out of</th></tr></thead>
+      <tbody>
+        {% for e in booking.evaluations %}
+        <tr><td>{{ e.rubric.criterion }}</td><td>{{ e.marks }}</td><td>{{ e.rubric.max_marks }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h5>Total: {{ booking.total_marks }} / {{ exam.max_marks }}</h5>
+    <p><b>Remarks:</b> {{ booking.remarks or "-" }}</p>
+    <p class="text-muted small mb-0">To keep a copy, press Ctrl+P and choose "Save as PDF".</p>
+  </div>
+</div>
+<a href="{{ url_for('student_results') }}">&larr; Back to results</a>
+{% endblock %}

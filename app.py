@@ -260,9 +260,11 @@ def student_dashboard():
     available_slots = (Slot.query.join(Exam)
                        .filter(Exam.status == "Booking Open", Slot.status == "Available")
                        .count())
-    upcoming = Booking.query.filter_by(student_id=g.user.id, status="Booked").all()
+    mine = Booking.query.filter_by(student_id=g.user.id).all()
+    upcoming = [b for b in mine if b.status == "Booked"]
+    results = [b for b in mine if b.status == "Completed" and b.exam.results_published]
     return render_template("student_dashboard.html", open_exams=open_exams,
-                           available_slots=available_slots, upcoming=upcoming)
+                           available_slots=available_slots, upcoming=upcoming, results=results)
 
 
 
@@ -772,6 +774,41 @@ def examiner_evaluate(booking_id):
 
     return render_template("examiner_evaluate.html", booking=booking, exam=exam,
                            rubrics=rubrics, given=given)
+@app.route("/student/results")
+@role_required("student")
+def student_results():
+    completed = (Booking.query.filter_by(student_id=g.user.id, status="Completed")
+                 .order_by(Booking.id.desc()).all())
+    results = [b for b in completed if b.exam.results_published]   # hidden until published
+    return render_template("student_results.html", results=results)
+
+
+@app.route("/student/scorecard/<int:booking_id>")
+@role_required("student")
+def student_scorecard(booking_id):
+    booking = db.session.get(Booking, booking_id)
+    if (booking is None or booking.student_id != g.user.id
+            or booking.status != "Completed" or not booking.exam.results_published):
+        abort(404)
+    return render_template("scorecard.html", booking=booking, exam=booking.exam)
+
+
+@app.route("/student/profile", methods=["GET", "POST"])
+@role_required("student")
+def student_profile():
+    if request.method == "POST":
+        name = request.form["name"].strip()
+        if not name:
+            flash("Name cannot be empty.", "danger")
+        else:
+            g.user.name = name
+            g.user.phone = request.form.get("phone")
+            g.user.roll_no = request.form.get("roll_no")
+            g.user.department = request.form.get("department")
+            db.session.commit()
+            flash("Profile updated.", "success")
+            return redirect(url_for("student_profile"))
+    return render_template("student_profile.html")
 
 if __name__ == "__main__":
     app.run(debug=True)
